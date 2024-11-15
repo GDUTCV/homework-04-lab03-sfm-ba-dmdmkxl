@@ -118,8 +118,10 @@ def detect_keypoints(image_file: os.path):
     """ YOUR CODE HERE:
     Detect keypoints using cv2.SIFT_create() and sift.detectAndCompute
     """
-    
-
+    # 检测 SIFT 特征点并计算描述符
+    sift = cv2.SIFT_create()
+    image = cv2.imread(image_file, cv2.IMREAD_GRAYSCALE)
+    keypoints, descriptors = sift.detectAndCompute(image, None)
 
     """ END YOUR CODE HERE. """
 
@@ -167,9 +169,12 @@ def create_feature_matches(image_file1: os.path, image_file2: os.path, lowe_rati
     1. Run cv.BFMatcher() and matcher.knnMatch(descriptors1, descriptors2, 2)
     2. Filter the feature matches using the Lowe ratio test.
     """
-    
-
-
+    # 使用 BFMatcher 进行特征匹配，并应用 Lowe 比率测试筛选匹配结果
+    bf = cv2.BFMatcher()
+    matches = bf.knnMatch(descriptors1, descriptors2, k=2)
+    for m, n in matches:
+        if m.distance < lowe_ratio * n.distance:
+            good_matches.append([m])
     """ END YOUR CODE HERE. """
     if len(good_matches) < min_matches:
         return match_id
@@ -242,9 +247,10 @@ def create_ransac_matches(image_file1: os.path, image_file2: os.path,
     Perform goemetric verification by finding the essential matrix between keypoints in the first image and keypoints in
     the second image using cv2.findEssentialMatrix(..., method=cv2.RANSAC, threshold=ransac_threshold, ...)
     """
-    
 
-
+    essential_mtx, is_inlier = cv2.findEssentialMat(points1, points2, camera_intrinsics,
+                                                     method=cv2.RANSAC, prob=0.999, threshold=ransac_threshold)
+    is_inlier = is_inlier.astype(bool)
     """ END YOUR CODE HERE """
 
     is_inlier = is_inlier.ravel().tolist()
@@ -278,8 +284,14 @@ def create_scene_graph(image_files: list, min_num_inliers: int = 40):
     Add edges to <graph> if the minimum number of geometrically verified inliers between images is at least  
     <min_num_inliers> 
     """
-    
-
+    for i in range(len(image_files)):
+        for j in range(i + 1, len(image_files)):
+            match_id = f"{image_ids[i]}_{image_ids[j]}"
+            match_file = os.path.join(RANSAC_MATCH_DIR, match_id + '.npy')
+            if os.path.exists(match_file):
+                inliers = np.load(match_file)
+                if len(inliers) >= min_num_inliers:
+                    graph.add_edge(i, j)
     
     """ END YOUR CODE HERE """
 
